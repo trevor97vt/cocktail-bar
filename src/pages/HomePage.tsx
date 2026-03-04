@@ -5,6 +5,8 @@ import {
   Button,
   Container,
   Skeleton,
+  Tab,
+  Tabs,
   Toolbar,
   Typography,
   Alert,
@@ -20,6 +22,7 @@ interface HomePageProps {
 }
 
 export default function HomePage({ user }: HomePageProps) {
+  const [activeTab, setActiveTab] = useState(0)
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [cocktails, setCocktails] = useState<Cocktail[]>([])
   const [cocktailsLoading, setCocktailsLoading] = useState(true)
@@ -102,33 +105,68 @@ export default function HomePage({ user }: HomePageProps) {
             Sign Out
           </Button>
         </Toolbar>
+        <Tabs
+          value={activeTab}
+          onChange={(_, newValue) => setActiveTab(newValue)}
+          sx={{
+            px: 2,
+            '& .MuiTab-root': { color: 'text.secondary', fontWeight: 600 },
+            '& .Mui-selected': { color: '#e91e63' },
+            '& .MuiTabs-indicator': { backgroundColor: '#e91e63' },
+          }}
+        >
+          <Tab label="Cocktails" />
+          <Tab label="Community Creations" />
+          <Tab label="My Bar" />
+        </Tabs>
       </AppBar>
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        {cocktailsError && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {cocktailsError}
-          </Alert>
+        {activeTab === 0 && (
+          <>
+            {cocktailsError && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {cocktailsError}
+              </Alert>
+            )}
+
+            {cocktailsLoading ? (
+              <Box sx={gridSx}>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} variant="rounded" height={260} sx={{ borderRadius: 3 }} />
+                ))}
+              </Box>
+            ) : cocktails.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 10 }}>
+                <LocalBar sx={{ fontSize: 64, color: '#e91e63', opacity: 0.3, mb: 2 }} />
+                <Typography variant="h6" color="text.secondary">
+                  No cocktails yet.
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={gridSx}>
+                {cocktails.map((cocktail) => (
+                  <CocktailCard key={cocktail.id} cocktail={cocktail} />
+                ))}
+              </Box>
+            )}
+          </>
         )}
 
-        {cocktailsLoading ? (
-          <Box sx={gridSx}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} variant="rounded" height={260} sx={{ borderRadius: 3 }} />
-            ))}
-          </Box>
-        ) : cocktails.length === 0 ? (
+        {activeTab === 1 && (
           <Box sx={{ textAlign: 'center', py: 10 }}>
             <LocalBar sx={{ fontSize: 64, color: '#e91e63', opacity: 0.3, mb: 2 }} />
             <Typography variant="h6" color="text.secondary">
-              No cocktails yet.
+              No community creations yet.
             </Typography>
           </Box>
-        ) : (
-          <Box sx={gridSx}>
-            {cocktails.map((cocktail) => (
-              <CocktailCard key={cocktail.id} cocktail={cocktail} />
-            ))}
+        )}
+
+        {activeTab === 2 && (
+          <Box sx={{ textAlign: 'center', py: 10 }}>
+            <Typography variant="h6" color="text.secondary">
+              My Bar
+            </Typography>
           </Box>
         )}
       </Container>
