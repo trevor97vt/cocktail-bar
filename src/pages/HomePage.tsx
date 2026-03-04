@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabaseClient'
 import type { User } from '@supabase/supabase-js'
 import type { Cocktail } from '../types/cocktail'
 import CocktailCard from '../components/CocktailCard'
+import MyBar from '../components/MyBar'
 
 interface HomePageProps {
   user: User
@@ -27,6 +28,7 @@ export default function HomePage({ user }: HomePageProps) {
   const [cocktails, setCocktails] = useState<Cocktail[]>([])
   const [cocktailsLoading, setCocktailsLoading] = useState(true)
   const [cocktailsError, setCocktailsError] = useState<string | null>(null)
+  const [userIngredientIds, setUserIngredientIds] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     supabase
@@ -38,26 +40,46 @@ export default function HomePage({ user }: HomePageProps) {
   }, [user.id])
 
   useEffect(() => {
+    Promise.all([
+      supabase
+        .from('cocktails')
+        .select(`
+          id, name, instructions, notes, glassware, garnish,
+          image_path, image_bucket, image_alt,
+          cocktail_ingredients (
+            amount, unit, prep, sort_order,
+            ingredients (id, name, kind, is_alcoholic)
+          )
+        `)
+        .order('name'),
+      supabase
+        .from('user_ingredients')
+        .select('ingredient_id')
+        .eq('user_id', user.id),
+    ]).then(([cocktailsResult, userIngredientsResult]) => {
+      if (cocktailsResult.error) {
+        setCocktailsError(cocktailsResult.error.message)
+      } else {
+        setCocktails((cocktailsResult.data as unknown as Cocktail[]) ?? [])
+      }
+      setUserIngredientIds(
+        new Set((userIngredientsResult.data ?? []).map((r) => r.ingredient_id as number))
+      )
+      setCocktailsLoading(false)
+    })
+  }, [user.id])
+
+  // Re-sync user ingredients when returning to the Cocktails tab
+  useEffect(() => {
+    if (activeTab !== 0 || cocktailsLoading) return
     supabase
-      .from('cocktails')
-      .select(`
-        id, name, instructions, notes, glassware, garnish,
-        image_path, image_bucket, image_alt,
-        cocktail_ingredients (
-          amount, unit, prep, sort_order,
-          ingredients (id, name, kind, is_alcoholic)
-        )
-      `)
-      .order('name')
-      .then(({ data, error }) => {
-        if (error) {
-          setCocktailsError(error.message)
-        } else {
-          setCocktails((data as unknown as Cocktail[]) ?? [])
-        }
-        setCocktailsLoading(false)
+      .from('user_ingredients')
+      .select('ingredient_id')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        setUserIngredientIds(new Set((data ?? []).map((r) => r.ingredient_id as number)))
       })
-  }, [])
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -143,12 +165,73 @@ export default function HomePage({ user }: HomePageProps) {
                   No cocktails yet.
                 </Typography>
               </Box>
+            ) : userIngredientIds.size === 0 ? (
+              <>
+                <Alert severity="info" sx={{ mb: 3 }}>
+                  Add ingredients in <strong>My Bar</strong> to see which cocktails you can make.
+                </Alert>
+                <Box sx={gridSx}>
+                  {cocktails.map((cocktail) => (
+                    <CocktailCard key={cocktail.id} cocktail={cocktail} />
+                  ))}
+                </Box>
+              </>
             ) : (
-              <Box sx={gridSx}>
-                {cocktails.map((cocktail) => (
-                  <CocktailCard key={cocktail.id} cocktail={cocktail} />
-                ))}
-              </Box>
+              <>
+                {(() => {
+                  const makeable = cocktails.filter(
+                    (c) =>
+                      c.cocktail_ingredients.length > 0 &&
+                      c.cocktail_ingredients.every((ci) => userIngredientIds.has(ci.ingredients.id))
+                  )
+                  const missing = cocktails.filter(
+                    (c) =>
+                      c.cocktail_ingredients.length === 0 ||
+                      c.cocktail_ingredients.some((ci) => !userIngredientIds.has(ci.ingredients.id))
+                  )
+                  return (
+                    <>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={700}
+                        color="text.secondary"
+                        sx={{ mb: 2 }}
+                      >
+                        YOU CAN MAKE ({makeable.length})
+                      </Typography>
+                      {makeable.length === 0 ? (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mb: 4, fontStyle: 'italic' }}
+                        >
+                          None yet — add more ingredients in My Bar.
+                        </Typography>
+                      ) : (
+                        <Box sx={{ ...gridSx, mb: 4 }}>
+                          {makeable.map((cocktail) => (
+                            <CocktailCard key={cocktail.id} cocktail={cocktail} />
+                          ))}
+                        </Box>
+                      )}
+
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={700}
+                        color="text.secondary"
+                        sx={{ mb: 2 }}
+                      >
+                        MISSING INGREDIENTS ({missing.length})
+                      </Typography>
+                      <Box sx={gridSx}>
+                        {missing.map((cocktail) => (
+                          <CocktailCard key={cocktail.id} cocktail={cocktail} />
+                        ))}
+                      </Box>
+                    </>
+                  )
+                })()}
+              </>
             )}
           </>
         )}
@@ -163,11 +246,7 @@ export default function HomePage({ user }: HomePageProps) {
         )}
 
         {activeTab === 2 && (
-          <Box sx={{ textAlign: 'center', py: 10 }}>
-            <Typography variant="h6" color="text.secondary">
-              My Bar
-            </Typography>
-          </Box>
+          <MyBar user={user} />
         )}
       </Container>
     </Box>

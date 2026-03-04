@@ -25,3 +25,6 @@ dist-ssr
 schema.sql
 .env.example
 *tmpclaude*
+
+# Local Netlify folder
+.netlify
