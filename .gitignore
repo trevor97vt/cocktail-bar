@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+schema.sql
+.env.example
+*tmpclaude*
