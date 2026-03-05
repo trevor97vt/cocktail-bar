@@ -22,7 +22,6 @@ import MyBar from '../components/MyBar'
 const THEME_COLORS = {
   primary: '#e91e63',
   primaryDark: '#c2185b',
-  primaryLight: 'rgba(233,30,99,0.4)',
   primaryLighter: 'rgba(233,30,99,0.08)',
   alertBackground: '#fce4ec',
   alertBorder: '#f8bbd9',
@@ -49,12 +48,6 @@ const APP_BAR_SX = {
   backdropFilter: 'blur(10px)',
   boxShadow: 'none',
   borderBottom: '1px solid rgba(0,0,0,0.08)',
-}
-
-const SCROLLABLE_CONTENT_SX = {
-  flex: 1,
-  overflow: 'auto',
-  mt: '112px', // Account for fixed AppBar + Tabs height
 }
 
 const GRID_SX = {

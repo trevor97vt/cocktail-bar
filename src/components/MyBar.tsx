@@ -20,12 +20,6 @@ import { supabase } from '../lib/supabaseClient'
 // Constants
 const THEME_COLORS = {
   primary: '#e91e63',
-  primaryDark: '#c2185b',
-  chipBackground: '#fce4ec',
-  chipText: '#c2185b',
-  chipDelete: '#e57373',
-  alertBackground: '#fce4ec',
-  alertBorder: '#f8bbd9',
 } as const
 
 const INGREDIENTS_QUERY = 'id, name, kind, is_alcoholic'
@@ -46,30 +40,6 @@ const SECTION_TITLE_SX = {
   fontWeight: 700,
   color: 'text.secondary',
   gutterBottom: true,
-}
-
-const EMPTY_MESSAGE_SX = {
-  backgroundColor: THEME_COLORS.alertBackground,
-  borderRadius: 1,
-  p: 2,
-  mb: 3,
-  border: `1px solid ${THEME_COLORS.alertBorder}`,
-}
-
-const CHIP_CONTAINER_SX = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: 1,
-  mb: 3,
-}
-
-const CHIP_SX = {
-  backgroundColor: THEME_COLORS.chipBackground,
-  color: THEME_COLORS.chipText,
-  '& .MuiChip-deleteIcon': {
-    color: THEME_COLORS.chipDelete,
-    '&:hover': { color: THEME_COLORS.chipText },
-  },
 }
 
 const SEARCH_FIELD_SX = {

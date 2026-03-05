@@ -19,42 +19,8 @@ import { supabase } from '../lib/supabaseClient'
 // Constants
 const THEME_COLORS = {
   primary: '#e91e63',
-  primaryDark: '#c2185b',
   gradient: 'linear-gradient(90deg, #e91e63, #9c27b0)',
 } as const
-
-const CONTAINER_SX = {
-  minHeight: '100vh',
-  background: 'linear-gradient(135deg, #fff8f0 0%, #fce4ec 50%, #f3e5f5 100%)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  py: 4,
-}
-
-const PAPER_SX = {
-  maxWidth: 400,
-  width: '100%',
-  p: 4,
-  borderRadius: 4,
-  boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
-  backdropFilter: 'blur(10px)',
-  background: 'rgba(255,255,255,0.9)',
-}
-
-const SUBMIT_BUTTON_SX = {
-  mt: 3,
-  py: 1.2,
-  fontWeight: 600,
-  textTransform: 'none' as const,
-  background: THEME_COLORS.gradient,
-  borderRadius: 2,
-  '&:hover': {
-    background: THEME_COLORS.gradient,
-    transform: 'translateY(-1px)',
-    boxShadow: '0 4px 15px rgba(233,30,99,0.3)',
-  },
-}
 
 const INPUT_SX = {
   '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: THEME_COLORS.primary },
