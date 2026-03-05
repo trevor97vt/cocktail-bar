@@ -203,35 +203,6 @@ export default function HomePage({ user }: HomePageProps) {
           flex: 1,
           overflow: 'auto',
           mt: '112px', // Account for fixed AppBar + Tabs height
-          // Custom scrollbar styling
-          '&::-webkit-scrollbar': {
-            width: '14px',
-          },
-          '&::-webkit-scrollbar-track': {
-            backgroundColor: 'rgba(0,0,0,0.05)',
-            borderRadius: '7px',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            backgroundColor: 'rgba(233,30,99,0.4)',
-            borderRadius: '7px',
-            '&:hover': {
-              backgroundColor: 'rgba(233,30,99,0.6)',
-            },
-          },
-          '&::-webkit-scrollbar-button': {
-            display: 'none !important', // Remove arrows (important for Edge)
-            height: '0px !important',
-            width: '0px !important',
-          },
-          '&::-webkit-scrollbar-button:start': {
-            display: 'none !important',
-          },
-          '&::-webkit-scrollbar-button:end': {
-            display: 'none !important',
-          },
-          // Firefox scrollbar styling
-          scrollbarWidth: 'auto',
-          scrollbarColor: 'rgba(233,30,99,0.4) rgba(0,0,0,0.05)',
         }}
       >
         <Container maxWidth="lg" sx={{ py: 4 }}>
