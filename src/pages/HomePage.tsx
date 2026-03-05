@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   AppBar,
   Box,
@@ -18,6 +18,56 @@ import type { Cocktail } from '../types/cocktail'
 import CocktailCard from '../components/CocktailCard'
 import MyBar from '../components/MyBar'
 
+// Constants
+const THEME_COLORS = {
+  primary: '#e91e63',
+  primaryDark: '#c2185b',
+  primaryLight: 'rgba(233,30,99,0.4)',
+  primaryLighter: 'rgba(233,30,99,0.08)',
+  alertBackground: '#fce4ec',
+  alertBorder: '#f8bbd9',
+} as const
+
+const COCKTAILS_QUERY = `
+  id, name, instructions, notes, glassware, garnish,
+  image_path, image_bucket, image_alt,
+  cocktail_ingredients (
+    amount, unit, prep, sort_order,
+    ingredients (id, name, kind, is_alcoholic)
+  )
+`
+
+const MAIN_CONTAINER_SX = {
+  height: '100vh',
+  display: 'flex',
+  flexDirection: 'column',
+  background: 'linear-gradient(135deg, #fff8f0 0%, #fce4ec 50%, #f3e5f5 100%)',
+}
+
+const APP_BAR_SX = {
+  background: 'rgba(255,255,255,0.8)',
+  backdropFilter: 'blur(10px)',
+  boxShadow: 'none',
+  borderBottom: '1px solid rgba(0,0,0,0.08)',
+}
+
+const SCROLLABLE_CONTENT_SX = {
+  flex: 1,
+  overflow: 'auto',
+  mt: '112px', // Account for fixed AppBar + Tabs height
+}
+
+const GRID_SX = {
+  display: 'grid',
+  gridTemplateColumns: {
+    xs: '1fr',
+    sm: 'repeat(2, 1fr)',
+    md: 'repeat(4, 1fr)',
+  },
+  alignItems: 'start',
+  gap: 3,
+}
+
 interface HomePageProps {
   user: User
 }
@@ -30,79 +80,86 @@ export default function HomePage({ user }: HomePageProps) {
   const [cocktailsError, setCocktailsError] = useState<string | null>(null)
   const [userIngredientIds, setUserIngredientIds] = useState<Set<number>>(new Set())
 
-  useEffect(() => {
-    supabase
+  // Fetch user display name
+  const fetchDisplayName = useCallback(async () => {
+    const { data } = await supabase
       .from('profiles')
       .select('display_name')
       .eq('id', user.id)
       .single()
-      .then(({ data }) => setDisplayName(data?.display_name ?? null))
+    
+    setDisplayName(data?.display_name ?? null)
   }, [user.id])
 
-  useEffect(() => {
-    Promise.all([
-      supabase
-        .from('cocktails')
-        .select(`
-          id, name, instructions, notes, glassware, garnish,
-          image_path, image_bucket, image_alt,
-          cocktail_ingredients (
-            amount, unit, prep, sort_order,
-            ingredients (id, name, kind, is_alcoholic)
-          )
-        `)
-        .order('name'),
-      supabase
-        .from('user_ingredients')
-        .select('ingredient_id')
-        .eq('user_id', user.id),
-    ]).then(([cocktailsResult, userIngredientsResult]) => {
-      if (cocktailsResult.error) {
-        setCocktailsError(cocktailsResult.error.message)
-      } else {
-        setCocktails((cocktailsResult.data as unknown as Cocktail[]) ?? [])
-      }
-      setUserIngredientIds(
-        new Set((userIngredientsResult.data ?? []).map((r) => r.ingredient_id as number))
-      )
-      setCocktailsLoading(false)
-    })
+  // Fetch cocktails and user ingredients
+  const fetchData = useCallback(async () => {
+    const [cocktailsResult, userIngredientsResult] = await Promise.all([
+      supabase.from('cocktails').select(COCKTAILS_QUERY).order('name'),
+      supabase.from('user_ingredients').select('ingredient_id').eq('user_id', user.id),
+    ])
+
+    if (cocktailsResult.error) {
+      setCocktailsError(cocktailsResult.error.message)
+    } else {
+      setCocktails((cocktailsResult.data as unknown as Cocktail[]) ?? [])
+    }
+
+    setUserIngredientIds(
+      new Set((userIngredientsResult.data ?? []).map((r) => r.ingredient_id as number))
+    )
+    setCocktailsLoading(false)
   }, [user.id])
 
-  // Re-sync user ingredients when returning to the Cocktails tab
-  useEffect(() => {
+  // Re-sync user ingredients
+  const syncUserIngredients = useCallback(async () => {
     if (activeTab !== 0 || cocktailsLoading) return
-    supabase
+    
+    const { data } = await supabase
       .from('user_ingredients')
       .select('ingredient_id')
       .eq('user_id', user.id)
-      .then(({ data }) => {
-        setUserIngredientIds(new Set((data ?? []).map((r) => r.ingredient_id as number)))
-      })
-  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+    
+    setUserIngredientIds(new Set((data ?? []).map((r) => r.ingredient_id as number)))
+  }, [activeTab, cocktailsLoading, user.id])
+
+  // Categorize cocktails based on available ingredients
+  const categorizeCocktails = useCallback(() => {
+    const makeable = cocktails.filter(
+      (c) =>
+        c.cocktail_ingredients.length > 0 &&
+        c.cocktail_ingredients.every((ci) => userIngredientIds.has(ci.ingredients.id))
+    )
+    
+    const missing = cocktails.filter(
+      (c) =>
+        c.cocktail_ingredients.length === 0 ||
+        c.cocktail_ingredients.some((ci) => !userIngredientIds.has(ci.ingredients.id))
+    )
+    
+    return { makeable, missing }
+  }, [cocktails, userIngredientIds])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
   }
 
+  useEffect(() => {
+    fetchDisplayName()
+  }, [fetchDisplayName])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  useEffect(() => {
+    syncUserIngredients()
+  }, [syncUserIngredients])
+
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #fff8f0 0%, #fce4ec 50%, #f3e5f5 100%)',
-      }}
-    >
-      <AppBar
-        position="static"
-        sx={{
-          background: 'rgba(255,255,255,0.8)',
-          backdropFilter: 'blur(10px)',
-          boxShadow: 'none',
-          borderBottom: '1px solid rgba(0,0,0,0.08)',
-        }}
-      >
+    <Box sx={MAIN_CONTAINER_SX}>
+      <AppBar position="fixed" sx={APP_BAR_SX}>
         <Toolbar>
-          <LocalBar sx={{ color: '#e91e63', mr: 1 }} />
+          <LocalBar sx={{ color: THEME_COLORS.primary, mr: 1 }} />
           <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1, color: 'text.primary' }}>
             Cocktail Bar
           </Typography>
@@ -119,9 +176,9 @@ export default function HomePage({ user }: HomePageProps) {
             onClick={handleSignOut}
             size="small"
             sx={{
-              color: '#e91e63',
-              borderColor: '#e91e63',
-              '&:hover': { borderColor: '#c2185b', background: 'rgba(233,30,99,0.08)' },
+              color: THEME_COLORS.primary,
+              borderColor: THEME_COLORS.primary,
+              '&:hover': { borderColor: THEME_COLORS.primaryDark, background: THEME_COLORS.primaryLighter },
             }}
           >
             Sign Out
@@ -132,9 +189,14 @@ export default function HomePage({ user }: HomePageProps) {
           onChange={(_, newValue) => setActiveTab(newValue)}
           sx={{
             px: 2,
-            '& .MuiTab-root': { color: 'text.secondary', fontWeight: 600 },
-            '& .Mui-selected': { color: '#e91e63' },
-            '& .MuiTabs-indicator': { backgroundColor: '#e91e63' },
+            '& .MuiTab-root': { 
+              color: 'text.secondary', 
+              fontWeight: 600,
+              '&.Mui-selected': { 
+                color: THEME_COLORS.primary 
+              }
+            },
+            '& .MuiTabs-indicator': { backgroundColor: THEME_COLORS.primary },
           }}
         >
           <Tab label="Cocktails" />
@@ -143,7 +205,43 @@ export default function HomePage({ user }: HomePageProps) {
         </Tabs>
       </AppBar>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          mt: '112px', // Account for fixed AppBar + Tabs height
+          // Custom scrollbar styling
+          '&::-webkit-scrollbar': {
+            width: '14px',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'rgba(0,0,0,0.05)',
+            borderRadius: '7px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(233,30,99,0.4)',
+            borderRadius: '7px',
+            '&:hover': {
+              backgroundColor: 'rgba(233,30,99,0.6)',
+            },
+          },
+          '&::-webkit-scrollbar-button': {
+            display: 'none !important', // Remove arrows (important for Edge)
+            height: '0px !important',
+            width: '0px !important',
+          },
+          '&::-webkit-scrollbar-button:start': {
+            display: 'none !important',
+          },
+          '&::-webkit-scrollbar-button:end': {
+            display: 'none !important',
+          },
+          // Firefox scrollbar styling
+          scrollbarWidth: 'auto',
+          scrollbarColor: 'rgba(233,30,99,0.4) rgba(0,0,0,0.05)',
+        }}
+      >
+        <Container maxWidth="lg" sx={{ py: 4 }}>
         {activeTab === 0 && (
           <>
             {cocktailsError && (
@@ -153,24 +251,35 @@ export default function HomePage({ user }: HomePageProps) {
             )}
 
             {cocktailsLoading ? (
-              <Box sx={gridSx}>
+              <Box sx={GRID_SX}>
                 {Array.from({ length: 8 }).map((_, i) => (
                   <Skeleton key={i} variant="rounded" height={260} sx={{ borderRadius: 3 }} />
                 ))}
               </Box>
             ) : cocktails.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 10 }}>
-                <LocalBar sx={{ fontSize: 64, color: '#e91e63', opacity: 0.3, mb: 2 }} />
+                <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
                 <Typography variant="h6" color="text.secondary">
                   No cocktails yet.
                 </Typography>
               </Box>
             ) : userIngredientIds.size === 0 ? (
               <>
-                <Alert severity="info" sx={{ mb: 3 }}>
+                <Alert 
+                  severity="info" 
+                  sx={{ 
+                    mb: 3,
+                    backgroundColor: THEME_COLORS.alertBackground,
+                    color: THEME_COLORS.primaryDark,
+                    border: `1px solid ${THEME_COLORS.alertBorder}`,
+                    '& .MuiAlert-icon': {
+                      color: THEME_COLORS.primary
+                    }
+                  }}
+                >
                   Add ingredients in <strong>My Bar</strong> to see which cocktails you can make.
                 </Alert>
-                <Box sx={gridSx}>
+                <Box sx={GRID_SX}>
                   {cocktails.map((cocktail) => (
                     <CocktailCard key={cocktail.id} cocktail={cocktail} />
                   ))}
@@ -179,16 +288,8 @@ export default function HomePage({ user }: HomePageProps) {
             ) : (
               <>
                 {(() => {
-                  const makeable = cocktails.filter(
-                    (c) =>
-                      c.cocktail_ingredients.length > 0 &&
-                      c.cocktail_ingredients.every((ci) => userIngredientIds.has(ci.ingredients.id))
-                  )
-                  const missing = cocktails.filter(
-                    (c) =>
-                      c.cocktail_ingredients.length === 0 ||
-                      c.cocktail_ingredients.some((ci) => !userIngredientIds.has(ci.ingredients.id))
-                  )
+                  const { makeable, missing } = categorizeCocktails()
+                  
                   return (
                     <>
                       <Typography
@@ -208,7 +309,7 @@ export default function HomePage({ user }: HomePageProps) {
                           None yet — add more ingredients in My Bar.
                         </Typography>
                       ) : (
-                        <Box sx={{ ...gridSx, mb: 4 }}>
+                        <Box sx={{ ...GRID_SX, mb: 4 }}>
                           {makeable.map((cocktail) => (
                             <CocktailCard key={cocktail.id} cocktail={cocktail} />
                           ))}
@@ -223,7 +324,7 @@ export default function HomePage({ user }: HomePageProps) {
                       >
                         MISSING INGREDIENTS ({missing.length})
                       </Typography>
-                      <Box sx={gridSx}>
+                      <Box sx={GRID_SX}>
                         {missing.map((cocktail) => (
                           <CocktailCard key={cocktail.id} cocktail={cocktail} />
                         ))}
@@ -238,7 +339,7 @@ export default function HomePage({ user }: HomePageProps) {
 
         {activeTab === 1 && (
           <Box sx={{ textAlign: 'center', py: 10 }}>
-            <LocalBar sx={{ fontSize: 64, color: '#e91e63', opacity: 0.3, mb: 2 }} />
+            <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
             <Typography variant="h6" color="text.secondary">
               No community creations yet.
             </Typography>
@@ -248,18 +349,8 @@ export default function HomePage({ user }: HomePageProps) {
         {activeTab === 2 && (
           <MyBar user={user} />
         )}
-      </Container>
+        </Container>
+      </Box>
     </Box>
   )
-}
-
-const gridSx = {
-  display: 'grid',
-  gridTemplateColumns: {
-    xs: '1fr',
-    sm: 'repeat(2, 1fr)',
-    md: 'repeat(4, 1fr)',
-  },
-  alignItems: 'start',
-  gap: 3,
 }

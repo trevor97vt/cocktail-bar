@@ -17,6 +17,75 @@ import { Add, Clear, Search } from '@mui/icons-material'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
 
+// Constants
+const THEME_COLORS = {
+  primary: '#e91e63',
+  primaryDark: '#c2185b',
+  chipBackground: '#fce4ec',
+  chipText: '#c2185b',
+  chipDelete: '#e57373',
+  alertBackground: '#fce4ec',
+  alertBorder: '#f8bbd9',
+} as const
+
+const INGREDIENTS_QUERY = 'id, name, kind, is_alcoholic'
+
+const LOADING_SX = {
+  display: 'flex',
+  justifyContent: 'center',
+  py: 10,
+}
+
+const CONTAINER_SX = {
+  maxWidth: 600,
+  mx: 'auto',
+}
+
+const SECTION_TITLE_SX = {
+  variant: 'subtitle2' as const,
+  fontWeight: 700,
+  color: 'text.secondary',
+  gutterBottom: true,
+}
+
+const EMPTY_MESSAGE_SX = {
+  backgroundColor: THEME_COLORS.alertBackground,
+  borderRadius: 1,
+  p: 2,
+  mb: 3,
+  border: `1px solid ${THEME_COLORS.alertBorder}`,
+}
+
+const CHIP_CONTAINER_SX = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 1,
+  mb: 3,
+}
+
+const CHIP_SX = {
+  backgroundColor: THEME_COLORS.chipBackground,
+  color: THEME_COLORS.chipText,
+  '& .MuiChip-deleteIcon': {
+    color: THEME_COLORS.chipDelete,
+    '&:hover': { color: THEME_COLORS.chipText },
+  },
+}
+
+const SEARCH_FIELD_SX = {
+  mb: 1,
+  '& .MuiOutlinedInput-root.Mui-focused fieldset': {
+    borderColor: THEME_COLORS.primary,
+  },
+}
+
+const EMPTY_LIST_MESSAGE_SX = {
+  textAlign: 'center',
+  py: 4,
+  fontStyle: 'italic',
+}
+
+// Types
 interface Ingredient {
   id: number
   name: string
@@ -39,10 +108,12 @@ export default function MyBar({ user }: MyBarProps) {
   const fetchIngredients = useCallback(async () => {
     setLoading(true)
     setError(null)
+    
     const [allResult, userResult] = await Promise.all([
-      supabase.from('ingredients').select('id, name, kind, is_alcoholic').order('name'),
+      supabase.from('ingredients').select(INGREDIENTS_QUERY).order('name'),
       supabase.from('user_ingredients').select('ingredient_id').eq('user_id', user.id),
     ])
+    
     if (allResult.error) {
       setError(allResult.error.message)
     } else {
@@ -51,6 +122,7 @@ export default function MyBar({ user }: MyBarProps) {
       setMyIngredients(all.filter((i) => myIds.has(i.id)))
       setAvailableIngredients(all.filter((i) => !myIds.has(i.id)))
     }
+    
     setLoading(false)
   }, [user.id])
 
@@ -58,11 +130,13 @@ export default function MyBar({ user }: MyBarProps) {
     fetchIngredients()
   }, [fetchIngredients])
 
-  const addIngredient = async (ingredient: Ingredient) => {
+  const addIngredient = useCallback(async (ingredient: Ingredient) => {
     setPendingIds((prev) => new Set(prev).add(ingredient.id))
+    
     const { error } = await supabase
       .from('user_ingredients')
       .insert({ user_id: user.id, ingredient_id: ingredient.id })
+    
     if (error) {
       setError(error.message)
     } else {
@@ -71,20 +145,23 @@ export default function MyBar({ user }: MyBarProps) {
       )
       setAvailableIngredients((prev) => prev.filter((i) => i.id !== ingredient.id))
     }
+    
     setPendingIds((prev) => {
       const next = new Set(prev)
       next.delete(ingredient.id)
       return next
     })
-  }
+  }, [user.id])
 
-  const removeIngredient = async (ingredient: Ingredient) => {
+  const removeIngredient = useCallback(async (ingredient: Ingredient) => {
     setPendingIds((prev) => new Set(prev).add(ingredient.id))
+    
     const { error } = await supabase
       .from('user_ingredients')
       .delete()
       .eq('user_id', user.id)
       .eq('ingredient_id', ingredient.id)
+    
     if (error) {
       setError(error.message)
     } else {
@@ -93,27 +170,39 @@ export default function MyBar({ user }: MyBarProps) {
       )
       setMyIngredients((prev) => prev.filter((i) => i.id !== ingredient.id))
     }
+    
     setPendingIds((prev) => {
       const next = new Set(prev)
       next.delete(ingredient.id)
       return next
     })
-  }
+  }, [user.id])
 
-  const filteredAvailable = availableIngredients.filter((i) =>
-    i.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredAvailable = availableIngredients
+    .filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      // Sort by kind first (nullish kinds go to the end)
+      const kindA = a.kind ?? 'zzz_unknown'
+      const kindB = b.kind ?? 'zzz_unknown'
+      
+      if (kindA !== kindB) {
+        return kindA.localeCompare(kindB)
+      }
+      
+      // Within the same kind, sort by name
+      return a.name.localeCompare(b.name)
+    })
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-        <CircularProgress sx={{ color: '#e91e63' }} />
+      <Box sx={LOADING_SX}>
+        <CircularProgress sx={{ color: THEME_COLORS.primary }} />
       </Box>
     )
   }
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto' }}>
+    <Box sx={CONTAINER_SX}>
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
@@ -121,13 +210,13 @@ export default function MyBar({ user }: MyBarProps) {
       )}
 
       {/* My Ingredients */}
-      <Typography variant="subtitle2" fontWeight={700} color="text.secondary" gutterBottom>
+      <Typography {...SECTION_TITLE_SX}>
         MY INGREDIENTS
       </Typography>
 
       {myIngredients.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3, fontStyle: 'italic' }}>
-          No ingredients added yet. Search below to add some.
+          No ingredients added yet. Search below to add some. Ingredients are generic, not brand-specific.
         </Typography>
       ) : (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
@@ -159,7 +248,7 @@ export default function MyBar({ user }: MyBarProps) {
       <Divider sx={{ mb: 3 }} />
 
       {/* Add Ingredients */}
-      <Typography variant="subtitle2" fontWeight={700} color="text.secondary" gutterBottom>
+      <Typography {...SECTION_TITLE_SX}>
         ADD INGREDIENTS
       </Typography>
 
@@ -169,10 +258,7 @@ export default function MyBar({ user }: MyBarProps) {
         onChange={(e) => setSearch(e.target.value)}
         fullWidth
         size="small"
-        sx={{
-          mb: 1,
-          '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#e91e63' },
-        }}
+        sx={SEARCH_FIELD_SX}
         slotProps={{
           input: {
             startAdornment: (
@@ -195,7 +281,7 @@ export default function MyBar({ user }: MyBarProps) {
         <Typography
           variant="body2"
           color="text.secondary"
-          sx={{ textAlign: 'center', py: 4, fontStyle: 'italic' }}
+          sx={EMPTY_LIST_MESSAGE_SX}
         >
           {search ? `No ingredients matching "${search}"` : 'All ingredients are already in your bar!'}
         </Typography>
@@ -211,10 +297,10 @@ export default function MyBar({ user }: MyBarProps) {
                     onClick={() => addIngredient(ingredient)}
                     disabled={pendingIds.has(ingredient.id)}
                     size="small"
-                    sx={{ color: '#e91e63' }}
+                    sx={{ color: THEME_COLORS.primary }}
                   >
                     {pendingIds.has(ingredient.id) ? (
-                      <CircularProgress size={16} sx={{ color: '#e91e63' }} />
+                      <CircularProgress size={16} sx={{ color: THEME_COLORS.primary }} />
                     ) : (
                       <Add fontSize="small" />
                     )}

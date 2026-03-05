@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import {
   Box,
   Button,
@@ -16,6 +16,52 @@ import {
 import { Visibility, VisibilityOff, LocalBar } from '@mui/icons-material'
 import { supabase } from '../lib/supabaseClient'
 
+// Constants
+const THEME_COLORS = {
+  primary: '#e91e63',
+  primaryDark: '#c2185b',
+  gradient: 'linear-gradient(90deg, #e91e63, #9c27b0)',
+} as const
+
+const CONTAINER_SX = {
+  minHeight: '100vh',
+  background: 'linear-gradient(135deg, #fff8f0 0%, #fce4ec 50%, #f3e5f5 100%)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  py: 4,
+}
+
+const PAPER_SX = {
+  maxWidth: 400,
+  width: '100%',
+  p: 4,
+  borderRadius: 4,
+  boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+  backdropFilter: 'blur(10px)',
+  background: 'rgba(255,255,255,0.9)',
+}
+
+const SUBMIT_BUTTON_SX = {
+  mt: 3,
+  py: 1.2,
+  fontWeight: 600,
+  textTransform: 'none' as const,
+  background: THEME_COLORS.gradient,
+  borderRadius: 2,
+  '&:hover': {
+    background: THEME_COLORS.gradient,
+    transform: 'translateY(-1px)',
+    boxShadow: '0 4px 15px rgba(233,30,99,0.3)',
+  },
+}
+
+const INPUT_SX = {
+  '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: THEME_COLORS.primary },
+  '& .MuiInputLabel-root.Mui-focused': { color: THEME_COLORS.primary },
+}
+
+// Types
 type AuthMode = 'signIn' | 'signUp'
 
 export default function LoginPage() {
@@ -29,10 +75,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  const validateDisplayName = (value: string): string | null => {
+  const validateDisplayName = useCallback((value: string): string | null => {
     if (value.trim().length < 6) return 'Display name must be at least 6 characters.'
     return null
-  }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -115,7 +161,7 @@ export default function LoginPage() {
         >
           {/* Logo / Branding */}
           <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <LocalBar sx={{ fontSize: 48, color: '#e91e63', mb: 1 }} />
+            <LocalBar sx={{ fontSize: 48, color: THEME_COLORS.primary, mb: 1 }} />
             <Typography variant="h4" fontWeight={700} letterSpacing={1}>
               Cocktail Bar
             </Typography>
@@ -211,7 +257,7 @@ export default function LoginPage() {
                 mt: 3,
                 mb: 2,
                 py: 1.5,
-                background: 'linear-gradient(90deg, #e91e63, #9c27b0)',
+                background: THEME_COLORS.gradient,
                 fontWeight: 700,
                 fontSize: '1rem',
                 letterSpacing: 0.5,
@@ -238,7 +284,11 @@ export default function LoginPage() {
                 component="button"
                 type="button"
                 onClick={toggleMode}
-                sx={{ color: '#e91e63', fontWeight: 600, cursor: 'pointer' }}
+                sx={{
+                  color: THEME_COLORS.primary,
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
               >
                 {mode === 'signIn' ? 'Sign Up' : 'Sign In'}
               </Link>
@@ -250,7 +300,4 @@ export default function LoginPage() {
   )
 }
 
-const textFieldSx = {
-  '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#e91e63' },
-  '& .MuiInputLabel-root.Mui-focused': { color: '#e91e63' },
-}
+const textFieldSx = INPUT_SX

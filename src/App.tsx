@@ -5,6 +5,19 @@ import { supabase } from './lib/supabaseClient'
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
 
+// Constants
+const THEME_COLORS = {
+  primary: '#e91e63',
+} as const
+
+const LOADING_CONTAINER_SX = {
+  minHeight: '100vh',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'linear-gradient(135deg, #fff8f0 0%, #fce4ec 50%, #f3e5f5 100%)',
+}
+
 const theme = createTheme({
   palette: {
     mode: 'light',
@@ -35,16 +48,8 @@ function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Box
-          sx={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'linear-gradient(135deg, #fff8f0 0%, #fce4ec 50%, #f3e5f5 100%)',
-          }}
-        >
-          <CircularProgress sx={{ color: '#e91e63' }} />
+        <Box sx={LOADING_CONTAINER_SX}>
+          <CircularProgress sx={{ color: THEME_COLORS.primary }} />
         </Box>
       </ThemeProvider>
     )
