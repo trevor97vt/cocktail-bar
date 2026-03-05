@@ -24,52 +24,7 @@ import type { Cocktail } from '../types/cocktail'
 // Constants
 const THEME_COLORS = {
   primary: '#e91e63',
-  primaryLight: 'rgba(233,30,99,0.04)',
-  gray: 'rgba(0,0,0,0.04)',
 } as const
-
-const CARD_SX = {
-  height: '100%',
-  borderRadius: 3,
-  overflow: 'hidden',
-  transition: 'all 0.2s ease-in-out',
-  '&:hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
-  },
-}
-
-const IMAGE_BOX_SX = {
-  position: 'relative',
-  height: 120,
-  overflow: 'hidden',
-}
-
-const IMAGE_SX = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-}
-
-const PLACEHOLDER_SX = {
-  width: '100%',
-  height: '100%',
-  background: 'linear-gradient(135deg, #f5f5f5, #e8e8e8)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-}
-
-const EXPAND_BUTTON_SX = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 0.5,
-  color: THEME_COLORS.primary,
-  fontWeight: 600,
-  fontSize: '0.875rem',
-  cursor: 'pointer',
-  '&:hover': { opacity: 0.8 },
-}
 
 // Types
 interface CocktailCardProps {
