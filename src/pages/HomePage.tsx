@@ -11,25 +11,18 @@ import {
   Typography,
   Alert,
 } from '@mui/material'
-import { LocalBar, Logout } from '@mui/icons-material'
+import { ArrowDownward, ArrowUpward, LocalBar, Logout, Upload } from '@mui/icons-material'
 import { supabase } from '../lib/supabaseClient'
 import type { User } from '@supabase/supabase-js'
 import type { Cocktail } from '../types/cocktail'
 import CocktailCard from '../components/CocktailCard'
 import MyBar from '../components/MyBar'
-
-// Constants
-const THEME_COLORS = {
-  primary: '#e91e63',
-  primaryDark: '#c2185b',
-  primaryLighter: 'rgba(233,30,99,0.08)',
-  alertBackground: '#fce4ec',
-  alertBorder: '#f8bbd9',
-} as const
+import SubmitCocktailDialog from '../components/SubmitCocktailDialog'
+import { THEME_COLORS } from '../theme'
 
 const COCKTAILS_QUERY = `
   id, name, instructions, notes, glassware, garnish,
-  image_path, image_bucket, image_alt,
+  created_at, image_path, image_bucket, image_alt, submitted_by,
   cocktail_ingredients (
     amount, unit, prep, sort_order,
     ingredients (id, name, kind, is_alcoholic)
@@ -72,6 +65,9 @@ export default function HomePage({ user }: HomePageProps) {
   const [cocktailsLoading, setCocktailsLoading] = useState(true)
   const [cocktailsError, setCocktailsError] = useState<string | null>(null)
   const [userIngredientIds, setUserIngredientIds] = useState<Set<number>>(new Set())
+  const [submitterNames, setSubmitterNames] = useState<Map<string, string>>(new Map())
+  const [communitySort, setCommunitySort] = useState<'asc' | 'desc'>('desc')
+  const [submitOpen, setSubmitOpen] = useState(false)
 
   // Fetch user display name
   const fetchDisplayName = useCallback(async () => {
@@ -94,7 +90,21 @@ export default function HomePage({ user }: HomePageProps) {
     if (cocktailsResult.error) {
       setCocktailsError(cocktailsResult.error.message)
     } else {
-      setCocktails((cocktailsResult.data as unknown as Cocktail[]) ?? [])
+      const cocktailData = (cocktailsResult.data as unknown as Cocktail[]) ?? []
+      setCocktails(cocktailData)
+
+      const submitterIds = [...new Set(
+        cocktailData.filter((c) => c.submitted_by).map((c) => c.submitted_by as string)
+      )]
+      if (submitterIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, display_name')
+          .in('id', submitterIds)
+        setSubmitterNames(new Map((profiles ?? []).map((p) => [p.id, p.display_name])))
+      } else {
+        setSubmitterNames(new Map())
+      }
     }
 
     setUserIngredientIds(
@@ -117,18 +127,24 @@ export default function HomePage({ user }: HomePageProps) {
 
   // Categorize cocktails based on available ingredients
   const categorizeCocktails = useCallback(() => {
-    const makeable = cocktails.filter(
+    const regularCocktails = cocktails.filter((c) => c.submitted_by === null)
+
+    const makeable = regularCocktails.filter(
       (c) =>
         c.cocktail_ingredients.length > 0 &&
-        c.cocktail_ingredients.every((ci) => userIngredientIds.has(ci.ingredients.id))
+        c.cocktail_ingredients
+          .filter((ci) => ci.ingredients.kind !== 'garnish') // Ignore garnishes
+          .every((ci) => userIngredientIds.has(ci.ingredients.id))
     )
-    
-    const missing = cocktails.filter(
+
+    const missing = regularCocktails.filter(
       (c) =>
         c.cocktail_ingredients.length === 0 ||
-        c.cocktail_ingredients.some((ci) => !userIngredientIds.has(ci.ingredients.id))
+        c.cocktail_ingredients
+          .filter((ci) => ci.ingredients.kind !== 'garnish') // Ignore garnishes
+          .some((ci) => !userIngredientIds.has(ci.ingredients.id))
     )
-    
+
     return { makeable, missing }
   }, [cocktails, userIngredientIds])
 
@@ -220,94 +236,144 @@ export default function HomePage({ user }: HomePageProps) {
                   <Skeleton key={i} variant="rounded" height={260} sx={{ borderRadius: 3 }} />
                 ))}
               </Box>
-            ) : cocktails.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 10 }}>
-                <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">
-                  No cocktails yet.
-                </Typography>
-              </Box>
-            ) : userIngredientIds.size === 0 ? (
-              <>
-                <Alert 
-                  severity="info" 
-                  sx={{ 
-                    mb: 3,
-                    backgroundColor: THEME_COLORS.alertBackground,
-                    color: THEME_COLORS.primaryDark,
-                    border: `1px solid ${THEME_COLORS.alertBorder}`,
-                    '& .MuiAlert-icon': {
-                      color: THEME_COLORS.primary
-                    }
-                  }}
-                >
-                  Add ingredients in <strong>My Bar</strong> to see which cocktails you can make.
-                </Alert>
-                <Box sx={GRID_SX}>
-                  {cocktails.map((cocktail) => (
-                    <CocktailCard key={cocktail.id} cocktail={cocktail} />
-                  ))}
+            ) : (() => {
+              const regularCocktails = cocktails.filter((c) => c.submitted_by === null)
+              if (regularCocktails.length === 0) return (
+                <Box sx={{ textAlign: 'center', py: 10 }}>
+                  <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    No cocktails yet.
+                  </Typography>
                 </Box>
-              </>
-            ) : (
-              <>
-                {(() => {
-                  const { makeable, missing } = categorizeCocktails()
-                  
-                  return (
-                    <>
-                      <Typography
-                        variant="subtitle2"
-                        fontWeight={700}
-                        color="text.secondary"
-                        sx={{ mb: 2 }}
-                      >
-                        YOU CAN MAKE ({makeable.length})
-                      </Typography>
-                      {makeable.length === 0 ? (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ mb: 4, fontStyle: 'italic' }}
-                        >
-                          None yet — add more ingredients in My Bar.
-                        </Typography>
-                      ) : (
-                        <Box sx={{ ...GRID_SX, mb: 4 }}>
-                          {makeable.map((cocktail) => (
-                            <CocktailCard key={cocktail.id} cocktail={cocktail} />
-                          ))}
-                        </Box>
-                      )}
+              )
+              if (userIngredientIds.size === 0) return (
+                <>
+                  <Alert
+                    severity="info"
+                    sx={{
+                      mb: 3,
+                      backgroundColor: THEME_COLORS.alertBackground,
+                      color: THEME_COLORS.primaryDark,
+                      border: `1px solid ${THEME_COLORS.alertBorder}`,
+                      '& .MuiAlert-icon': {
+                        color: THEME_COLORS.primary
+                      }
+                    }}
+                  >
+                    Add ingredients in <strong>My Bar</strong> to see which cocktails you can make.
+                  </Alert>
+                  <Box sx={GRID_SX}>
+                    {regularCocktails.map((cocktail) => (
+                      <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
+                    ))}
+                  </Box>
+                </>
+              )
+              const { makeable, missing } = categorizeCocktails()
+              return (
+                <>
+                  <Typography
+                    variant="subtitle2"
+                    fontWeight={700}
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    YOU CAN MAKE ({makeable.length})
+                  </Typography>
+                  {makeable.length === 0 ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 4, fontStyle: 'italic' }}
+                    >
+                      None yet — add more ingredients in My Bar.
+                    </Typography>
+                  ) : (
+                    <Box sx={{ ...GRID_SX, mb: 4 }}>
+                      {makeable.map((cocktail) => (
+                        <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
+                      ))}
+                    </Box>
+                  )}
 
-                      <Typography
-                        variant="subtitle2"
-                        fontWeight={700}
-                        color="text.secondary"
-                        sx={{ mb: 2 }}
-                      >
-                        MISSING INGREDIENTS ({missing.length})
-                      </Typography>
-                      <Box sx={GRID_SX}>
-                        {missing.map((cocktail) => (
-                          <CocktailCard key={cocktail.id} cocktail={cocktail} />
-                        ))}
-                      </Box>
-                    </>
-                  )
-                })()}
-              </>
-            )}
+                  <Typography
+                    variant="subtitle2"
+                    fontWeight={700}
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    MISSING INGREDIENTS ({missing.length})
+                  </Typography>
+                  <Box sx={GRID_SX}>
+                    {missing.map((cocktail) => (
+                      <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
+                    ))}
+                  </Box>
+                </>
+              )
+            })()}
           </>
         )}
 
         {activeTab === 1 && (
-          <Box sx={{ textAlign: 'center', py: 10 }}>
-            <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
-            <Typography variant="h6" color="text.secondary">
-              No community creations yet.
-            </Typography>
-          </Box>
+          <>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={communitySort === 'desc' ? <ArrowDownward /> : <ArrowUpward />}
+                onClick={() => setCommunitySort((s) => (s === 'desc' ? 'asc' : 'desc'))}
+                sx={{
+                  color: THEME_COLORS.primary,
+                  borderColor: THEME_COLORS.primary,
+                  '&:hover': { borderColor: THEME_COLORS.primaryDark, background: THEME_COLORS.primaryLighter },
+                }}
+              >
+                {communitySort === 'desc' ? 'Newest first' : 'Oldest first'}
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<Upload />}
+                onClick={() => setSubmitOpen(true)}
+                sx={{
+                  backgroundColor: THEME_COLORS.primary,
+                  '&:hover': { backgroundColor: THEME_COLORS.primaryDark },
+                }}
+              >
+                Upload a Cocktail
+              </Button>
+            </Box>
+            {cocktailsLoading ? (
+              <Box sx={GRID_SX}>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} variant="rounded" height={260} sx={{ borderRadius: 3 }} />
+                ))}
+              </Box>
+            ) : (() => {
+              const communityCocktails = cocktails
+                .filter((c) => c.submitted_by !== null)
+                .sort((a, b) => {
+                  const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                  return communitySort === 'asc' ? diff : -diff
+                })
+              if (communityCocktails.length === 0) return (
+                <Box sx={{ textAlign: 'center', py: 10 }}>
+                  <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    No community creations yet.
+                  </Typography>
+                </Box>
+              )
+              return (
+                <Box sx={GRID_SX}>
+                  {communityCocktails.map((cocktail) => (
+                    <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
+                  ))}
+                </Box>
+              )
+            })()}
+          </>
         )}
 
         {activeTab === 2 && (
@@ -315,6 +381,13 @@ export default function HomePage({ user }: HomePageProps) {
         )}
         </Container>
       </Box>
+
+      <SubmitCocktailDialog
+        open={submitOpen}
+        onClose={() => setSubmitOpen(false)}
+        onSubmitted={fetchData}
+        user={user}
+      />
     </Box>
   )
 }

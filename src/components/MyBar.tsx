@@ -16,11 +16,7 @@ import {
 import { Add, Clear, Search } from '@mui/icons-material'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
-
-// Constants
-const THEME_COLORS = {
-  primary: '#e91e63',
-} as const
+import { THEME_COLORS } from '../theme'
 
 const INGREDIENTS_QUERY = 'id, name, kind, is_alcoholic'
 
@@ -80,7 +76,7 @@ export default function MyBar({ user }: MyBarProps) {
     setError(null)
     
     const [allResult, userResult] = await Promise.all([
-      supabase.from('ingredients').select(INGREDIENTS_QUERY).order('name'),
+      supabase.from('ingredients').select(INGREDIENTS_QUERY).neq('kind', 'garnish').order('name'),
       supabase.from('user_ingredients').select('ingredient_id').eq('user_id', user.id),
     ])
     

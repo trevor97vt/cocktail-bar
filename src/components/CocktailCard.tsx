@@ -20,15 +20,13 @@ import {
 } from '@mui/icons-material'
 import { supabase } from '../lib/supabaseClient'
 import type { Cocktail } from '../types/cocktail'
-
-// Constants
-const THEME_COLORS = {
-  primary: '#e91e63',
-} as const
+import { THEME_COLORS } from '../theme'
 
 // Types
 interface CocktailCardProps {
   cocktail: Cocktail
+  userIngredientIds?: Set<number>
+  submitterName?: string
 }
 
 // Helper functions
@@ -45,7 +43,7 @@ function getImageUrl(bucket: string, path: string): string {
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
 }
 
-export default function CocktailCard({ cocktail }: CocktailCardProps) {
+export default function CocktailCard({ cocktail, userIngredientIds, submitterName }: CocktailCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   const imageUrl =
@@ -56,6 +54,13 @@ export default function CocktailCard({ cocktail }: CocktailCardProps) {
   const sortedIngredients = [...cocktail.cocktail_ingredients].sort(
     (a, b) => a.sort_order - b.sort_order
   )
+
+  // Calculate missing ingredients (excluding garnishes)
+  const missingIngredients = userIngredientIds 
+    ? sortedIngredients
+        .filter((ci) => ci.ingredients.kind !== 'garnish')
+        .filter((ci) => !userIngredientIds.has(ci.ingredients.id))
+    : []
 
   return (
     <Card
@@ -130,7 +135,9 @@ export default function CocktailCard({ cocktail }: CocktailCardProps) {
               INGREDIENTS
             </Typography>
             <List dense disablePadding sx={{ mb: 2 }}>
-              {sortedIngredients.map((ci, i) => (
+              {sortedIngredients
+                .filter((ci) => ci.ingredients.kind !== 'garnish') // Exclude garnishes
+                .map((ci, i) => (
                 <ListItem key={i} disableGutters sx={{ py: 0.25 }}>
                   <ListItemText
                     primary={formatIngredient(ci)}
@@ -156,9 +163,32 @@ export default function CocktailCard({ cocktail }: CocktailCardProps) {
             <Typography variant="subtitle2" fontWeight={700} color="text.secondary" gutterBottom>
               INSTRUCTIONS
             </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-line', mb: 2 }}>
               {cocktail.instructions}
             </Typography>
+
+            {/* Missing Ingredients */}
+            {missingIngredients.length > 0 && (
+              <>
+                <Typography variant="subtitle2" fontWeight={700} color="text.secondary" gutterBottom>
+                  MISSING INGREDIENTS
+                </Typography>
+                <List dense disablePadding sx={{ mb: 2 }}>
+                  {missingIngredients.map((ci, i) => (
+                    <ListItem key={i} disableGutters sx={{ py: 0.25 }}>
+                      <ListItemText
+                        primary={ci.ingredients.name}
+                        primaryTypographyProps={{ 
+                          variant: 'body2',
+                          color: 'error.main',
+                          fontStyle: 'italic'
+                        }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </>
+            )}
           </Box>
         )}
       </Box>
@@ -178,6 +208,11 @@ export default function CocktailCard({ cocktail }: CocktailCardProps) {
               <ExpandMore sx={{ color: 'text.secondary', flexShrink: 0 }} />
             )}
           </Box>
+          {submitterName && (
+            <Typography variant="caption" color="text.secondary">
+              Submitted by {submitterName}
+            </Typography>
+          )}
         </CardContent>
       </CardActionArea>
     </Card>

@@ -4,11 +4,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabaseClient'
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
-
-// Constants
-const THEME_COLORS = {
-  primary: '#e91e63',
-} as const
+import { THEME_COLORS } from './theme'
 
 const LOADING_CONTAINER_SX = {
   minHeight: '100vh',

@@ -18,8 +18,10 @@ export interface Cocktail {
   notes: string | null
   glassware: string | null
   garnish: string | null
+  created_at: string
   image_path: string | null
   image_bucket: string
   image_alt: string | null
+  submitted_by: string | null
   cocktail_ingredients: CocktailIngredient[]
 }

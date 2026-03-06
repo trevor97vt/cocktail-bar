@@ -15,12 +15,7 @@ import {
 } from '@mui/material'
 import { Visibility, VisibilityOff, LocalBar } from '@mui/icons-material'
 import { supabase } from '../lib/supabaseClient'
-
-// Constants
-const THEME_COLORS = {
-  primary: '#e91e63',
-  gradient: 'linear-gradient(90deg, #e91e63, #9c27b0)',
-} as const
+import { THEME_COLORS } from '../theme'
 
 const INPUT_SX = {
   '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: THEME_COLORS.primary },
