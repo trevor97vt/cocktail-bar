@@ -90,7 +90,7 @@ export default function HomePage({ user }: HomePageProps) {
     if (cocktailsResult.error) {
       setCocktailsError(cocktailsResult.error.message)
     } else {
-      const cocktailData = (cocktailsResult.data as unknown as Cocktail[]) ?? []
+      const cocktailData = (cocktailsResult.data ?? []) as unknown as Cocktail[]
       setCocktails(cocktailData)
 
       const submitterIds = [...new Set(
@@ -108,7 +108,11 @@ export default function HomePage({ user }: HomePageProps) {
     }
 
     setUserIngredientIds(
-      new Set((userIngredientsResult.data ?? []).map((r) => r.ingredient_id as number))
+      new Set(
+        (userIngredientsResult.data ?? [])
+          .map((r) => r.ingredient_id)
+          .filter((id): id is number => id !== null)
+      )
     )
     setCocktailsLoading(false)
   }, [user.id])
@@ -122,7 +126,9 @@ export default function HomePage({ user }: HomePageProps) {
       .select('ingredient_id')
       .eq('user_id', user.id)
     
-    setUserIngredientIds(new Set((data ?? []).map((r) => r.ingredient_id as number)))
+    setUserIngredientIds(
+      new Set((data ?? []).map((r) => r.ingredient_id).filter((id): id is number => id !== null))
+    )
   }, [activeTab, cocktailsLoading, user.id])
 
   // Categorize cocktails based on available ingredients
@@ -163,6 +169,90 @@ export default function HomePage({ user }: HomePageProps) {
   useEffect(() => {
     syncUserIngredients()
   }, [syncUserIngredients])
+
+  function renderCocktailsTab() {
+    const regularCocktails = cocktails.filter((c) => c.submitted_by === null)
+    if (regularCocktails.length === 0) return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
+        <Typography variant="h6" color="text.secondary">
+          No cocktails yet.
+        </Typography>
+      </Box>
+    )
+    if (userIngredientIds.size === 0) return (
+      <>
+        <Alert
+          severity="info"
+          sx={{
+            mb: 3,
+            backgroundColor: THEME_COLORS.alertBackground,
+            color: THEME_COLORS.primaryDark,
+            border: `1px solid ${THEME_COLORS.alertBorder}`,
+            '& .MuiAlert-icon': { color: THEME_COLORS.primary }
+          }}
+        >
+          Add ingredients in <strong>My Bar</strong> to see which cocktails you can make.
+        </Alert>
+        <Box sx={GRID_SX}>
+          {regularCocktails.map((cocktail) => (
+            <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
+          ))}
+        </Box>
+      </>
+    )
+    const { makeable, missing } = categorizeCocktails()
+    return (
+      <>
+        <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 2 }}>
+          YOU CAN MAKE ({makeable.length})
+        </Typography>
+        {makeable.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 4, fontStyle: 'italic' }}>
+            None yet — add more ingredients in My Bar.
+          </Typography>
+        ) : (
+          <Box sx={{ ...GRID_SX, mb: 4 }}>
+            {makeable.map((cocktail) => (
+              <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
+            ))}
+          </Box>
+        )}
+        <Typography variant="subtitle2" fontWeight={700} color="text.secondary" sx={{ mb: 2 }}>
+          MISSING INGREDIENTS ({missing.length})
+        </Typography>
+        <Box sx={GRID_SX}>
+          {missing.map((cocktail) => (
+            <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
+          ))}
+        </Box>
+      </>
+    )
+  }
+
+  function renderCommunityTab() {
+    const communityCocktails = cocktails
+      .filter((c) => c.submitted_by !== null)
+      .sort((a, b) => {
+        const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        return communitySort === 'asc' ? diff : -diff
+      })
+    if (communityCocktails.length === 0) return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
+        <Typography variant="h6" color="text.secondary">
+          No community creations yet.
+        </Typography>
+      </Box>
+    )
+    return (
+      <Box sx={GRID_SX}>
+        {communityCocktails.map((cocktail) => (
+          <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
+        ))}
+      </Box>
+    )
+  }
 
   return (
     <Box sx={MAIN_CONTAINER_SX}>
@@ -236,82 +326,7 @@ export default function HomePage({ user }: HomePageProps) {
                   <Skeleton key={i} variant="rounded" height={260} sx={{ borderRadius: 3 }} />
                 ))}
               </Box>
-            ) : (() => {
-              const regularCocktails = cocktails.filter((c) => c.submitted_by === null)
-              if (regularCocktails.length === 0) return (
-                <Box sx={{ textAlign: 'center', py: 10 }}>
-                  <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    No cocktails yet.
-                  </Typography>
-                </Box>
-              )
-              if (userIngredientIds.size === 0) return (
-                <>
-                  <Alert
-                    severity="info"
-                    sx={{
-                      mb: 3,
-                      backgroundColor: THEME_COLORS.alertBackground,
-                      color: THEME_COLORS.primaryDark,
-                      border: `1px solid ${THEME_COLORS.alertBorder}`,
-                      '& .MuiAlert-icon': {
-                        color: THEME_COLORS.primary
-                      }
-                    }}
-                  >
-                    Add ingredients in <strong>My Bar</strong> to see which cocktails you can make.
-                  </Alert>
-                  <Box sx={GRID_SX}>
-                    {regularCocktails.map((cocktail) => (
-                      <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
-                    ))}
-                  </Box>
-                </>
-              )
-              const { makeable, missing } = categorizeCocktails()
-              return (
-                <>
-                  <Typography
-                    variant="subtitle2"
-                    fontWeight={700}
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    YOU CAN MAKE ({makeable.length})
-                  </Typography>
-                  {makeable.length === 0 ? (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mb: 4, fontStyle: 'italic' }}
-                    >
-                      None yet — add more ingredients in My Bar.
-                    </Typography>
-                  ) : (
-                    <Box sx={{ ...GRID_SX, mb: 4 }}>
-                      {makeable.map((cocktail) => (
-                        <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
-                      ))}
-                    </Box>
-                  )}
-
-                  <Typography
-                    variant="subtitle2"
-                    fontWeight={700}
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    MISSING INGREDIENTS ({missing.length})
-                  </Typography>
-                  <Box sx={GRID_SX}>
-                    {missing.map((cocktail) => (
-                      <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
-                    ))}
-                  </Box>
-                </>
-              )
-            })()}
+            ) : renderCocktailsTab()}
           </>
         )}
 
@@ -350,29 +365,7 @@ export default function HomePage({ user }: HomePageProps) {
                   <Skeleton key={i} variant="rounded" height={260} sx={{ borderRadius: 3 }} />
                 ))}
               </Box>
-            ) : (() => {
-              const communityCocktails = cocktails
-                .filter((c) => c.submitted_by !== null)
-                .sort((a, b) => {
-                  const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                  return communitySort === 'asc' ? diff : -diff
-                })
-              if (communityCocktails.length === 0) return (
-                <Box sx={{ textAlign: 'center', py: 10 }}>
-                  <LocalBar sx={{ fontSize: 64, color: THEME_COLORS.primary, opacity: 0.3, mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    No community creations yet.
-                  </Typography>
-                </Box>
-              )
-              return (
-                <Box sx={GRID_SX}>
-                  {communityCocktails.map((cocktail) => (
-                    <CocktailCard key={cocktail.id} cocktail={cocktail} userIngredientIds={userIngredientIds} submitterName={cocktail.submitted_by ? submitterNames.get(cocktail.submitted_by) : undefined} />
-                  ))}
-                </Box>
-              )
-            })()}
+            ) : renderCommunityTab()}
           </>
         )}
 

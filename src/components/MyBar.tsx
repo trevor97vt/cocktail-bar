@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -145,20 +145,24 @@ export default function MyBar({ user }: MyBarProps) {
     })
   }, [user.id])
 
-  const filteredAvailable = availableIngredients
-    .filter((i) => normalize(i.name).includes(normalize(search)))
-    .sort((a, b) => {
-      // Sort by kind first (nullish kinds go to the end)
-      const kindA = a.kind ?? 'zzz_unknown'
-      const kindB = b.kind ?? 'zzz_unknown'
-      
-      if (kindA !== kindB) {
-        return kindA.localeCompare(kindB)
-      }
-      
-      // Within the same kind, sort by name
-      return a.name.localeCompare(b.name)
-    })
+  const filteredAvailable = useMemo(
+    () =>
+      availableIngredients
+        .filter((i) => normalize(i.name).includes(normalize(search)))
+        .sort((a, b) => {
+          // Sort by kind first (nullish kinds go to the end)
+          const kindA = a.kind ?? 'zzz_unknown'
+          const kindB = b.kind ?? 'zzz_unknown'
+
+          if (kindA !== kindB) {
+            return kindA.localeCompare(kindB)
+          }
+
+          // Within the same kind, sort by name
+          return a.name.localeCompare(b.name)
+        }),
+    [availableIngredients, search]
+  )
 
   if (loading) {
     return (

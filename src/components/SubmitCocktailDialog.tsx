@@ -45,6 +45,10 @@ interface SubmitCocktailDialogProps {
 
 const emptyRow = (): IngredientRow => ({ ingredient: null, amount: '', unit: '', prep: '' })
 
+function filterIngredientOptions(options: Ingredient[], { inputValue }: { inputValue: string }): Ingredient[] {
+  return options.filter((o) => normalize(o.name).includes(normalize(inputValue)))
+}
+
 export default function SubmitCocktailDialog({
   open,
   onClose,
@@ -93,7 +97,7 @@ export default function SubmitCocktailDialog({
     }
   }, [open])
 
-  const filledRows = rows.filter((r) => r.ingredient !== null)
+  const filledRows = rows.filter((r): r is IngredientRow & { ingredient: Ingredient } => r.ingredient !== null)
   const canSubmit = name.trim() && instructions.trim() && filledRows.length >= 2 && !submitting
 
   const updateRow = (index: number, patch: Partial<IngredientRow>) => {
@@ -135,7 +139,7 @@ export default function SubmitCocktailDialog({
 
     const ingredientInserts = filledRows.map((r, i) => ({
       cocktail_id: cocktailId,
-      ingredient_id: r.ingredient!.id,
+      ingredient_id: r.ingredient.id,
       amount: r.amount ? parseFloat(r.amount) : null,
       unit: r.unit.trim() || null,
       prep: r.prep.trim() || null,
@@ -217,9 +221,7 @@ export default function SubmitCocktailDialog({
               <Autocomplete
                 options={allIngredients}
                 getOptionLabel={(o) => o.name}
-                filterOptions={(options, { inputValue }) =>
-                  options.filter((o) => normalize(o.name).includes(normalize(inputValue)))
-                }
+                filterOptions={filterIngredientOptions}
                 value={row.ingredient}
                 onChange={(_, val) => updateRow(index, { ingredient: val })}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
