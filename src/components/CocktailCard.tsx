@@ -147,6 +147,14 @@ export default function CocktailCard({ cocktail, userIngredientIds, submitterNam
               ))}
             </List>
 
+            {/* Instructions */}
+            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" gutterBottom>
+              INSTRUCTIONS
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-line', mb: 2 }}>
+              {cocktail.instructions}
+            </Typography>
+
             {/* Notes */}
             {cocktail.notes && (
               <>
@@ -158,14 +166,6 @@ export default function CocktailCard({ cocktail, userIngredientIds, submitterNam
                 </Typography>
               </>
             )}
-
-            {/* Instructions */}
-            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" gutterBottom>
-              INSTRUCTIONS
-            </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-line', mb: 2 }}>
-              {cocktail.instructions}
-            </Typography>
 
             {/* Missing Ingredients */}
             {missingIngredients.length > 0 && (

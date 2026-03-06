@@ -17,6 +17,7 @@ import { Add, Clear, Search } from '@mui/icons-material'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
 import { THEME_COLORS } from '../theme'
+import { normalize } from '../utils'
 
 const INGREDIENTS_QUERY = 'id, name, kind, is_alcoholic'
 
@@ -145,7 +146,7 @@ export default function MyBar({ user }: MyBarProps) {
   }, [user.id])
 
   const filteredAvailable = availableIngredients
-    .filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((i) => normalize(i.name).includes(normalize(search)))
     .sort((a, b) => {
       // Sort by kind first (nullish kinds go to the end)
       const kindA = a.kind ?? 'zzz_unknown'

@@ -21,6 +21,7 @@ import { Add, Delete } from '@mui/icons-material'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
 import { THEME_COLORS } from '../theme'
+import { normalize } from '../utils'
 
 // Types
 interface Ingredient {
@@ -216,6 +217,9 @@ export default function SubmitCocktailDialog({
               <Autocomplete
                 options={allIngredients}
                 getOptionLabel={(o) => o.name}
+                filterOptions={(options, { inputValue }) =>
+                  options.filter((o) => normalize(o.name).includes(normalize(inputValue)))
+                }
                 value={row.ingredient}
                 onChange={(_, val) => updateRow(index, { ingredient: val })}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
